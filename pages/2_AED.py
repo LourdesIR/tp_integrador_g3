@@ -2,11 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Al principio de 2_AED.py, después de los imports, agregar:
-if not PLOTLY_AVAILABLE:
-    st.warning("⚠️ Plotly no está instalado. Instalalo con: pip install plotly")
-    st.info("Mostrando visualizaciones en versión simplificada...")
-    
+# ========== PRIMERO DEFINIR PLOTLY_AVAILABLE ==========
 try:
     import plotly.express as px
     import plotly.graph_objects as go
@@ -14,6 +10,11 @@ try:
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
+
+# ========== REVISIÓN: Forzar reinstalación si no está disponible ==========
+if not PLOTLY_AVAILABLE:
+    st.warning("⚠️ Plotly no está instalado. Las visualizaciones se mostrarán en versión simplificada.")
+    st.info("💡 Para mejores gráficos, asegurate que plotly esté en requirements.txt y reiniciá la app.")
 
 st.set_page_config(page_title="Análisis Exploratorio", layout="wide")
 
