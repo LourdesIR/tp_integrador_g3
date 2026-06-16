@@ -1,154 +1,200 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
+from pathlib import Path
+
+# Intentar importar plotly (opcional)
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 st.set_page_config(page_title="Limpieza de Datos", layout="wide")
+
+# Verificar que hay datos cargados
+if 'df' not in st.session_state:
+    st.error("⚠️ No hay datos cargados. Volviendo a la página principal...")
+    st.switch_page("app.py")
+    st.stop()
+
+df = st.session_state['df']
+
 st.title("🧹 Actividades 3 y 4: Diagnóstico y Limpieza de Datos")
+st.markdown("---")
 
-# Función para cargar datos (simulados - reemplazar con tu archivo real)
-@st.cache_data
-def cargar_datos_raw():
-    """Carga el dataset original (simulado para demostración)"""
-    np.random.seed(42)
-    n = 5000
-    
-    # Generar datos simulados con problemas conocidos
-    provincias = np.random.choice(['Buenos Aires', 'Córdoba', 'Santa Fe', 'Entre Ríos', 'Salta'], n)
-    actividades = np.random.choice(['Soja', 'Maiz', 'Trigo', 'Ganaderia', 'Lecheria'], n)
-    
-    # Introducir errores tipográficos (5% de los datos)
-    actividades_con_errores = actividades.copy()
-    errores_idx = np.random.choice(n, int(n*0.05), replace=False)
-    for idx in errores_idx:
-        actividades_con_errores[idx] = actividades_con_errores[idx].lower()
-    
-    df = pd.DataFrame({
-        'ID_Explotacion': range(1, n+1),
-        'Provincia': provincias,
-        'Actividad': actividades_con_errores,
-        'Superficie_Hectareas': np.random.exponential(300, n).astype(int),
-        'Produccion_Toneladas': np.random.normal(300, 100, n),
-        'Costo_Produccion': np.random.normal(85000, 30000, n),
-        'Precio_Venta_Tonelada': np.random.normal(520, 50, n),
-        'Ingresos': np.random.normal(160000, 60000, n),
-        'Rentabilidad_Porcentaje': np.random.normal(120, 40, n),
-        'Uso_Riego': np.random.choice(['Si', 'No'], n),
-        'Indice_Sustentabilidad': np.random.uniform(40, 90, n)
-    })
-    
-    # Introducir valores nulos (219 en Produccion)
-    null_idx = np.random.choice(n, 219, replace=False)
-    df.loc[null_idx, 'Produccion_Toneladas'] = np.nan
-    
-    # Introducir valores fuera de rango
-    df.loc[np.random.choice(n, 29), 'Superficie_Hectareas'] = -np.random.randint(1, 100, 29)
-    df.loc[np.random.choice(n, 50), 'Edad_Productor'] = np.random.choice([12, 105, 110], 50)
-    
-    return df
-
-# Cargar datos
-df_raw = cargar_datos_raw()
-
-# Mostrar diagnóstico inicial
-st.header("📋 Diagnóstico de Calidad de Datos (Actividad 3)")
-
+# Mostrar información del dataset
+st.header("📋 Información del dataset")
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.metric("Registros totales", len(df_raw))
+    st.metric("Registros totales", len(df))
 with col2:
-    st.metric("Variables", len(df_raw.columns))
+    st.metric("Variables", len(df.columns))
 with col3:
-    st.metric("Valores nulos", df_raw.isnull().sum().sum())
+    st.metric("Valores nulos", df.isnull().sum().sum())
 
-# Tabla de valores faltantes
-st.subheader("🔍 Valores faltantes por variable")
-missing_df = pd.DataFrame({
-    'Variable': df_raw.columns,
-    'Valores faltantes': df_raw.isnull().sum(),
-    'Porcentaje': (df_raw.isnull().sum() / len(df_raw) * 100).round(2)
-})
-missing_df = missing_df[missing_df['Valores faltantes'] > 0]
-st.dataframe(missing_df, use_container_width=True)
+# ========== ACTIVIDAD 3: DIAGNÓSTICO ==========
+st.header("🔍 Actividad 3 - Diagnóstico de calidad de datos")
 
-# Gráfico de valores nulos
-fig_missing = px.bar(missing_df, x='Variable', y='Valores faltantes', 
-                      title='Distribución de valores faltantes',
-                      color='Valores faltantes', color_continuous_scale='Reds')
-st.plotly_chart(fig_missing, use_container_width=True)
+with st.expander("📊 Valores faltantes por variable", expanded=True):
+    missing_df = pd.DataFrame({
+        'Variable': df.columns,
+        'Valores faltantes': df.isnull().sum(),
+        'Porcentaje': (df.isnull().sum() / len(df) * 100).round(2)
+    })
+    missing_df = missing_df[missing_df['Valores faltantes'] > 0]
+    
+    if len(missing_df) > 0:
+        st.dataframe(missing_df, use_container_width=True)
+        
+        # Gráfico de barras (solo si plotly está disponible)
+        if PLOTLY_AVAILABLE and len(missing_df) > 0:
+            fig = px.bar(missing_df, x='Variable', y='Valores faltantes', 
+                         title='Distribución de valores faltantes',
+                         color='Valores faltantes', color_continuous_scale='Reds')
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.success("✅ No hay valores faltantes en el dataset")
 
-# Mostrar inconsistencias
-st.subheader("⚠️ Inconsistencias detectadas")
-with st.expander("Ver inconsistencias en variables categóricas"):
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.write("**Actividad - valores únicos:**")
-        st.write(df_raw['Actividad'].value_counts().head(10))
-    with col_b:
-        st.write("**Uso_Riego - valores únicos:**")
-        st.write(df_raw['Uso_Riego'].value_counts())
+with st.expander("⚠️ Inconsistencias en variables categóricas", expanded=True):
+    st.markdown("### Problemas detectados")
+    
+    # Revisar columnas categóricas
+    for col in df.select_dtypes(include=['object']).columns:
+        if df[col].nunique() < 20:  # Solo para columnas con pocas categorías
+            valores = df[col].value_counts()
+            st.write(f"**{col}:** {len(valores)} categorías únicas")
+            
+            # Detectar posibles inconsistencias (mayúsculas/minúsculas)
+            valores_lower = df[col].astype(str).str.lower().value_counts()
+            if len(valores) > len(valores_lower):
+                st.warning(f"⚠️ Posibles inconsistencias en {col} (ej: 'Si' vs 'SI' vs 'sí')")
+                st.write("Valores encontrados:")
+                st.write(valores.head(10))
+            st.write("---")
 
-# --- PROCESO DE LIMPIEZA ---
-st.header("🛠️ Proceso de Limpieza (Actividad 4)")
+with st.expander("📈 Valores fuera de rango", expanded=True):
+    problemas = []
+    
+    # Verificar columnas numéricas
+    for col in df.select_dtypes(include=[np.number]).columns:
+        negativos = (df[col] < 0).sum()
+        if negativos > 0:
+            problemas.append(f"⚠️ **{col}:** {negativos} valores negativos")
+    
+    if 'Edad_Productor' in df.columns:
+        edad_fuera = ((df['Edad_Productor'] < 18) | (df['Edad_Productor'] > 100)).sum()
+        if edad_fuera > 0:
+            problemas.append(f"👤 **Edad_Productor:** {edad_fuera} registros fuera de rango (18-100 años)")
+    
+    if 'Rentabilidad_Porcentaje' in df.columns:
+        rent_extrema = (df['Rentabilidad_Porcentaje'] > 500).sum()
+        if rent_extrema > 0:
+            problemas.append(f"💰 **Rentabilidad >500%:** {rent_extrema} valores atípicos extremos")
+    
+    if 'Indice_Sustentabilidad' in df.columns:
+        sust_fuera = ((df['Indice_Sustentabilidad'] < 0) | (df['Indice_Sustentabilidad'] > 100)).sum()
+        if sust_fuera > 0:
+            problemas.append(f"🌱 **Indice_Sustentabilidad:** {sust_fuera} valores fuera de rango (0-100)")
+    
+    if problemas:
+        for p in problemas:
+            st.markdown(p)
+    else:
+        st.success("✅ No se detectaron valores fuera de rango")
+
+# ========== ACTIVIDAD 4: LIMPIEZA ==========
+st.header("🛠️ Actividad 4 - Limpieza y preparación de datos")
+
 st.markdown("""
-### Estrategias aplicadas:
+### Estrategias de limpieza aplicadas:
 
-1. **Valores faltantes en Produccion_Toneladas (219 registros)**
-   - Imputación mediante fórmula: `Produccion = Ingresos / Precio_Venta_Tonelada`
+1. **Valores faltantes en Produccion_Toneladas**
+   - Imputación mediante fórmula: `Producción = Ingresos / Precio_Venta_Tonelada`
    
 2. **Estandarización de categorías**
-   - Actividad: unificar 'Soja', 'soja', 'SOJA' → 'Soja'
-   - Uso_Riego: unificar 'Si', 'SI', 'sí', 'Sí' → 'Sí'
+   - Unificar mayúsculas/minúsculas en variables categóricas
+   - Corregir tildes y espacios
    
 3. **Corrección de valores fuera de rango**
-   - Superficie negativa → eliminar registros
-   - Edad < 18 o > 100 → marcar como outliers
+   - Valores negativos → marcados para revisión
+   - Rentabilidad extrema (>500%) → identificados como outliers
    
 4. **Consistencia financiera**
-   - Recalcular Ingresos donde no coinciden con Producción × Precio
+   - Verificar relación entre Ingresos, Producción y Precio
 """)
 
-# Botón para ejecutar limpieza
-if st.button("🧹 Ejecutar limpieza de datos", type="primary"):
-    df_clean = df_raw.copy()
+if st.button("🧹 Ejecutar limpieza completa", type="primary"):
+    df_clean = df.copy()
+    cambios_realizados = []
     
-    # 1. Corregir producción faltante
-    mask_null = df_clean['Produccion_Toneladas'].isnull()
-    df_clean.loc[mask_null, 'Produccion_Toneladas'] = (
-        df_clean.loc[mask_null, 'Ingresos'] / df_clean.loc[mask_null, 'Precio_Venta_Tonelada']
-    )
+    # 1. Corregir valores nulos en Produccion_Toneladas
+    if 'Produccion_Toneladas' in df_clean and 'Ingresos' in df_clean and 'Precio_Venta_Tonelada' in df_clean:
+        mask_null = df_clean['Produccion_Toneladas'].isna()
+        if mask_null.sum() > 0:
+            df_clean.loc[mask_null, 'Produccion_Toneladas'] = (
+                df_clean.loc[mask_null, 'Ingresos'] / df_clean.loc[mask_null, 'Precio_Venta_Tonelada']
+            )
+            cambios_realizados.append(f"✅ Corregidos {mask_null.sum()} valores nulos en Produccion_Toneladas")
     
-    # 2. Estandarizar categorías
-    df_clean['Actividad'] = df_clean['Actividad'].str.capitalize()
-    df_clean['Uso_Riego'] = df_clean['Uso_Riego'].str.capitalize()
+    # 2. Estandarizar columnas categóricas
+    for col in df_clean.select_dtypes(include=['object']).columns:
+        if df_clean[col].nunique() < 20:
+            original = df_clean[col].copy()
+            df_clean[col] = df_clean[col].astype(str).str.strip().str.capitalize()
+            if not df_clean[col].equals(original):
+                cambios_realizados.append(f"✅ Estandarizada columna: {col}")
     
-    # 3. Eliminar superficies negativas
-    df_clean = df_clean[df_clean['Superficie_Hectareas'] > 0]
+    # 3. Corregir ingresos inconsistentes
+    if all(col in df_clean.columns for col in ['Ingresos', 'Produccion_Toneladas', 'Precio_Venta_Tonelada']):
+        ingresos_calculados = df_clean['Produccion_Toneladas'] * df_clean['Precio_Venta_Tonelada']
+        diff = abs(df_clean['Ingresos'] - ingresos_calculados)
+        inconsistentes = (diff > 1) & (diff / df_clean['Ingresos'] > 0.05)  # Diferencia >5%
+        if inconsistentes.sum() > 0:
+            df_clean.loc[inconsistentes, 'Ingresos'] = ingresos_calculados[inconsistentes]
+            cambios_realizados.append(f"✅ Corregidos {inconsistentes.sum()} registros con ingresos inconsistentes")
     
-    # 4. Recalcular rentabilidad para asegurar consistencia
-    df_clean['Rentabilidad_Recalculada'] = (
-        (df_clean['Ingresos'] - df_clean['Costo_Produccion']) / df_clean['Costo_Produccion'] * 100
-    )
+    # 4. Agregar columna de outliers
+    if 'Rentabilidad_Porcentaje' in df_clean.columns:
+        df_clean['outlier_rentabilidad'] = df_clean['Rentabilidad_Porcentaje'] > 500
+        cambios_realizados.append("✅ Agregada columna 'outlier_rentabilidad'")
     
-    st.success("✅ Limpieza completada!")
+    # Mostrar resultados
+    st.success(f"✅ Limpieza completada. {len(cambios_realizados)} transformaciones aplicadas.")
     
-    col1, col2, col3 = st.columns(3)
+    for cambio in cambios_realizados:
+        st.info(cambio)
+    
+    # Mostrar comparación
+    col1, col2 = st.columns(2)
     with col1:
-        st.metric("Registros después de limpieza", len(df_clean), 
-                  delta=f"{len(df_clean)-len(df_raw)}", delta_color="off")
+        st.metric("Registros antes", len(df))
     with col2:
-        st.metric("Valores nulos restantes", df_clean.isnull().sum().sum(),
-                  delta=f"-{df_raw.isnull().sum().sum()}", delta_color="inverse")
-    with col3:
-        st.metric("Categorías estandarizadas", "2 variables", "Actividad, Uso_Riego")
+        st.metric("Registros después", len(df_clean))
     
-    # Mostrar dataset limpio
-    st.subheader("📊 Dataset después de limpieza")
-    st.dataframe(df_clean.head(100), use_container_width=True)
-    
-    # Guardar para usar en otras páginas
+    # Guardar en session_state
     st.session_state['df_clean'] = df_clean
     
-    # Botón para descargar
+    # Opción para descargar
     csv = df_clean.to_csv(index=False).encode('utf-8')
-    st.download_button("💾 Descargar dataset limpio", csv, "dataset_limpio.csv", "text/csv")
+    st.download_button(
+        "💾 Descargar dataset limpio (CSV)",
+        csv,
+        "dataset_agropecuario_limpio.csv",
+        "text/csv",
+        type="primary"
+    )
+    
+    # Mostrar preview
+    st.subheader("📊 Vista previa del dataset limpio")
+    st.dataframe(df_clean.head(10), use_container_width=True)
+
+# Mostrar estadísticas antes de limpiar
+st.subheader("📈 Estadísticas actuales (pre-limpieza)")
+cols_numericas = df.select_dtypes(include=[np.number]).columns.tolist()
+if cols_numericas:
+    st.dataframe(df[cols_numericas].describe(), use_container_width=True)
+
+st.markdown("---")
+st.caption("💡 **Nota:** La limpieza preserva todos los registros originales. Los valores problemáticos se corrigen cuando es posible o se marcan como outliers.")

@@ -1,183 +1,171 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime
+import numpy as np
+
+try:
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 st.set_page_config(page_title="Dashboard Ejecutivo", layout="wide")
-st.title("📊 Dashboard Ejecutivo - Sector Agropecuario")
+
+# Verificar datos
+if 'df' not in st.session_state:
+    st.error("⚠️ No hay datos cargados. Volviendo a la página principal...")
+    st.switch_page("app.py")
+    st.stop()
+
+df = st.session_state['df']
+
+st.title("📊 Actividad 9: Dashboard Ejecutivo")
 st.markdown("### Monitoreo de KPIs y análisis interactivo")
+st.markdown("---")
 
-# Cargar datos
-if 'df_clean' in st.session_state:
-    df = st.session_state['df_clean']
-else:
-    # Datos simulados
-    np.random.seed(42)
-    df = pd.DataFrame({
-        'Provincia': np.random.choice(['Buenos Aires', 'Córdoba', 'Santa Fe', 'Entre Ríos', 'Salta', 'Mendoza', 'La Pampa', 'Chaco'], 5000),
-        'Actividad': np.random.choice(['Soja', 'Maíz', 'Trigo', 'Ganadería', 'Lechería', 'Fruticultura'], 5000),
-        'Nivel_Tecnificacion': np.random.choice(['Bajo', 'Medio', 'Alto'], 5000, p=[0.3, 0.4, 0.3]),
-        'Uso_Riego': np.random.choice(['Sí', 'No'], 5000),
-        'Superficie_Hectareas': np.random.exponential(300, 5000).astype(int),
-        'Produccion_Toneladas': np.random.normal(310, 150, 5000),
-        'Costo_Produccion': np.random.normal(84120, 60000, 5000),
-        'Rentabilidad_Porcentaje': np.random.normal(116, 100, 5000),
-        'Indice_Sustentabilidad': np.random.uniform(40, 90, 5000),
-        'Cantidad_Empleados': np.random.poisson(6, 5000)
-    })
-    df = df[df['Superficie_Hectareas'] > 0]
-    df = df[df['Rentabilidad_Porcentaje'].between(-90, 500)]
+# Detectar columnas disponibles
+cols = {
+    'provincia': 'Provincia' if 'Provincia' in df.columns else None,
+    'actividad': 'Actividad' if 'Actividad' in df.columns else None,
+    'tecnificacion': 'Nivel_Tecnificacion' if 'Nivel_Tecnificacion' in df.columns else None,
+    'riego': 'Uso_Riego' if 'Uso_Riego' in df.columns else None,
+    'produccion': 'Produccion_Toneladas' if 'Produccion_Toneladas' in df.columns else None,
+    'rentabilidad': 'Rentabilidad_Porcentaje' if 'Rentabilidad_Porcentaje' in df.columns else None,
+    'costo': 'Costo_Produccion' if 'Costo_Produccion' in df.columns else None,
+    'sustentabilidad': 'Indice_Sustentabilidad' if 'Indice_Sustentabilidad' in df.columns else None,
+    'empleados': 'Cantidad_Empleados' if 'Cantidad_Empleados' in df.columns else None,
+    'superficie': 'Superficie_Hectareas' if 'Superficie_Hectareas' in df.columns else None
+}
 
-# ========== SEGMENTADORES (filtros) ==========
-st.sidebar.header("🔍 Segmentadores")
-st.sidebar.markdown("---")
+# ========== SEGMENTADORES (Filtros) ==========
+st.sidebar.header("🔍 Filtros")
 
-provincia_sel = st.sidebar.multiselect(
-    "🌍 Provincia",
-    options=sorted(df['Provincia'].unique()),
-    default=sorted(df['Provincia'].unique())[:4]
-)
+# Crear filtros solo si las columnas existen
+filtros_aplicados = {}
+df_filtrado = df.copy()
 
-actividad_sel = st.sidebar.multiselect(
-    "🌱 Actividad productiva",
-    options=sorted(df['Actividad'].unique()),
-    default=sorted(df['Actividad'].unique())[:4]
-)
+if cols['provincia']:
+    prov_seleccionadas = st.sidebar.multiselect(
+        "Provincia",
+        options=sorted(df[cols['provincia']].dropna().unique()),
+        default=[]
+    )
+    if prov_seleccionadas:
+        df_filtrado = df_filtrado[df_filtrado[cols['provincia']].isin(prov_seleccionadas)]
 
-tecnificacion_sel = st.sidebar.multiselect(
-    "⚙️ Nivel de tecnificación",
-    options=sorted(df['Nivel_Tecnificacion'].unique()),
-    default=sorted(df['Nivel_Tecnificacion'].unique())
-)
+if cols['actividad']:
+    act_seleccionadas = st.sidebar.multiselect(
+        "Actividad productiva",
+        options=sorted(df[cols['actividad']].dropna().unique()),
+        default=[]
+    )
+    if act_seleccionadas:
+        df_filtrado = df_filtrado[df_filtrado[cols['actividad']].isin(act_seleccionadas)]
 
-riego_sel = st.sidebar.multiselect(
-    "💧 Uso de riego",
-    options=sorted(df['Uso_Riego'].unique()),
-    default=sorted(df['Uso_Riego'].unique())
-)
-
-# Aplicar filtros
-df_filtered = df[
-    (df['Provincia'].isin(provincia_sel)) &
-    (df['Actividad'].isin(actividad_sel)) &
-    (df['Nivel_Tecnificacion'].isin(tecnificacion_sel)) &
-    (df['Uso_Riego'].isin(riego_sel))
-]
+if cols['tecnificacion']:
+    tech_seleccionada = st.sidebar.selectbox(
+        "Nivel de tecnificación",
+        options=["Todas"] + sorted(df[cols['tecnificacion']].dropna().unique().tolist())
+    )
+    if tech_seleccionada != "Todas":
+        df_filtrado = df_filtrado[df_filtrado[cols['tecnificacion']] == tech_seleccionada]
 
 # ========== KPIs ==========
 st.header("📈 Indicadores Clave (KPIs)")
 
-kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
+kpi_cols = st.columns(5)
 
-with kpi_col1:
-    prod_promedio = df_filtered['Produccion_Toneladas'].mean()
-    st.metric(
-        label="🌾 Producción promedio",
-        value=f"{prod_promedio:,.0f} ton",
-        delta=f"vs nacional: {(prod_promedio - df['Produccion_Toneladas'].mean()):+.0f}",
-        delta_color="normal"
-    )
+kpi_config = [
+    (cols['produccion'], "🌾 Producción promedio", "ton", 0),
+    (cols['rentabilidad'], "💰 Rentabilidad promedio", "%", 1),
+    (cols['costo'], "💸 Costo promedio", "$", 0),
+    (cols['sustentabilidad'], "🌱 Sustentabilidad", "/100", 1),
+    (cols['empleados'], "👥 Empleados", "", 1)
+]
 
-with kpi_col2:
-    rent_promedio = df_filtered['Rentabilidad_Porcentaje'].mean()
-    st.metric(
-        label="💰 Rentabilidad promedio",
-        value=f"{rent_promedio:+.1f}%",
-        delta=f"vs nacional: {(rent_promedio - df['Rentabilidad_Porcentaje'].mean()):+.1f}%",
-        delta_color="normal" if rent_promedio > 0 else "inverse"
-    )
-
-with kpi_col3:
-    costo_promedio = df_filtered['Costo_Produccion'].mean()
-    st.metric(
-        label="💸 Costo de producción",
-        value=f"${costo_promedio:,.0f}",
-        delta=f"vs nacional: ${(costo_promedio - df['Costo_Produccion'].mean()):+,.0f}",
-        delta_color="inverse"  # costo menor es mejor
-    )
-
-with kpi_col4:
-    sust_promedio = df_filtered['Indice_Sustentabilidad'].mean()
-    st.metric(
-        label="🌱 Sustentabilidad",
-        value=f"{sust_promedio:.1f}/100",
-        delta=f"vs nacional: {(sust_promedio - df['Indice_Sustentabilidad'].mean()):+.1f}",
-        delta_color="normal"
-    )
-
-with kpi_col5:
-    empleados_promedio = df_filtered['Cantidad_Empleados'].mean()
-    st.metric(
-        label="👥 Empleados por explotación",
-        value=f"{empleados_promedio:.1f}",
-        delta=f"vs nacional: {(empleados_promedio - df['Cantidad_Empleados'].mean()):+.1f}"
-    )
+for i, (col, label, unidad, decimales) in enumerate(kpi_config):
+    if col and not df_filtrado[col].isna().all():
+        valor = df_filtrado[col].mean()
+        if not pd.isna(valor):
+            if decimales == 0:
+                kpi_cols[i].metric(label, f"{valor:,.0f} {unidad}")
+            else:
+                kpi_cols[i].metric(label, f"{valor:.1f} {unidad}")
 
 st.markdown("---")
 
 # ========== VISUALIZACIONES ==========
-st.header("📊 Visualizaciones Interactivas")
+st.header("📊 Análisis Visual")
 
-# Fila 1: Dos gráficos
 col1, col2 = st.columns(2)
 
 with col1:
-    # Gráfico de barras: Rentabilidad por actividad
-    rent_act = df_filtered.groupby('Actividad')['Rentabilidad_Porcentaje'].mean().sort_values(ascending=True)
-    fig = px.bar(x=rent_act.values, y=rent_act.index, orientation='h',
-                 title='Rentabilidad promedio por actividad',
-                 color=rent_act.values, color_continuous_scale='Viridis',
-                 labels={'x': 'Rentabilidad (%)', 'y': ''})
-    fig.update_layout(height=400, showlegend=False)
-    st.plotly_chart(fig, use_container_width=True)
+    if cols['actividad'] and cols['rentabilidad']:
+        st.subheader("Rentabilidad por actividad")
+        rent_act = df_filtrado.groupby(cols['actividad'])[cols['rentabilidad']].mean().sort_values(ascending=True)
+        
+        if PLOTLY_AVAILABLE:
+            fig = px.bar(x=rent_act.values, y=rent_act.index, orientation='h',
+                        title='Rentabilidad promedio por actividad',
+                        color=rent_act.values, color_continuous_scale='Viridis')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.bar_chart(rent_act)
 
 with col2:
-    # Gráfico de dispersión: Superficie vs Producción
-    fig = px.scatter(df_filtered.sample(min(1000, len(df_filtered))), 
-                     x='Superficie_Hectareas', y='Produccion_Toneladas',
-                     color='Nivel_Tecnificacion', size='Rentabilidad_Porcentaje',
-                     hover_data=['Provincia', 'Actividad'],
-                     title='Superficie vs Producción (tamaño = rentabilidad)',
-                     labels={'Superficie_Hectareas': 'Superficie (hectáreas)',
-                             'Produccion_Toneladas': 'Producción (toneladas)'})
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    if cols['provincia'] and cols['produccion']:
+        st.subheader("Producción por provincia")
+        prod_prov = df_filtrado.groupby(cols['provincia'])[cols['produccion']].mean().sort_values(ascending=False)
+        
+        if PLOTLY_AVAILABLE:
+            fig = px.bar(x=prod_prov.index, y=prod_prov.values,
+                        title='Producción promedio por provincia',
+                        color=prod_prov.values, color_continuous_scale='Greens')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.bar_chart(prod_prov)
 
-# Fila 2: Dos gráficos
-col3, col4 = st.columns(2)
-
-with col3:
-    # Gráfico de líneas: Rentabilidad por rango de superficie
-    df_filtered['Rango_Superficie'] = pd.cut(df_filtered['Superficie_Hectareas'],
-                                              bins=[0, 100, 250, 500, float('inf')],
-                                              labels=['<100 ha', '100-250 ha', '250-500 ha', '>500 ha'])
-    rent_sup = df_filtered.groupby('Rango_Superficie', observed=False)['Rentabilidad_Porcentaje'].mean()
+# Gráfico de dispersión
+if cols['produccion'] and cols['rentabilidad']:
+    st.subheader("Producción vs Rentabilidad")
     
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=rent_sup.index, y=rent_sup.values, mode='lines+markers',
-                             line=dict(width=3, color='green'), marker=dict(size=10)))
-    fig.update_layout(title='Rentabilidad según superficie explotada',
-                      yaxis_title='Rentabilidad (%)', xaxis_title='Rango de superficie')
-    st.plotly_chart(fig, use_container_width=True)
-
-with col4:
-    # Gráfico de barras apiladas: Composición por provincia
-    prov_tech = pd.crosstab(df_filtered['Provincia'], df_filtered['Nivel_Tecnificacion'])
-    fig = px.bar(prov_tech, x=prov_tech.index, y=['Bajo', 'Medio', 'Alto'],
-                 title='Distribución de niveles de tecnificación por provincia',
-                 labels={'value': 'Cantidad de explotaciones', 'variable': 'Nivel', 'Provincia': ''},
-                 color_discrete_map={'Bajo': '#ff9999', 'Medio': '#66b3ff', 'Alto': '#99ff99'})
-    fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    sample_df = df_filtrado[[cols['produccion'], cols['rentabilidad']]].dropna().head(1000)
+    
+    if PLOTLY_AVAILABLE:
+        fig = px.scatter(sample_df, x=cols['produccion'], y=cols['rentabilidad'],
+                        title='Relación entre producción y rentabilidad',
+                        opacity=0.6, trendline='ols')
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.scatter_chart(sample_df)
 
 # ========== TABLA DINÁMICA ==========
-st.header("📋 Tabla Dinámica - Detalle por segmento")
+st.header("📋 Tabla Dinámica")
 
-# Selector de agregación
-aggr_col = st.selectbox("Seleccionar dimensión para agrupar", 
-                        ['Provincia', 'Actividad', 'Nivel_Tecnificacion', 'Uso_Riego'])
+agrupar_por = st.selectbox("Agrupar por:", 
+                          [col for col in [cols['provincia'], cols['actividad'], cols['tecnificacion']] if col])
 
-pivot_table = df_filtered.groupby(aggr_col).agg({
-    'Produccion_Toneladas': 'mean',
-    'Rentabilidad_Porcentaje': '
+if agrupar_por:
+    columnas_agregar = []
+    for col in [cols['produccion'], cols['rentabilidad'], cols['costo'], cols['sustentabilidad']]:
+        if col:
+            columnas_agregar.append(col)
+    
+    if columnas_agregar:
+        pivot = df_filtrado.groupby(agrupar_por)[columnas_agregar].mean().round(2)
+        st.dataframe(pivot, use_container_width=True)
+
+# ========== RESUMEN EJECUTIVO ==========
+st.header("📝 Resumen Ejecutivo")
+
+with st.container():
+    st.markdown("""
+    ### Principales hallazgos:
+    
+    1. **Rentabilidad vs Producción:** No están correlacionadas directamente
+    2. **Tecnificación:** Aumenta producción pero no garantiza rentabilidad
+    3. **Actividades más rentables:** Maíz y Fruticultura
+    4. **Provincias destacadas:** Santa Fe (rentabilidad), Salta (producción)
+    """)
+
+st.markdown("---")
+st.caption(f"Dashboard actualizado | Datos filtrados: {len(df_filtrado)} explotaciones")
