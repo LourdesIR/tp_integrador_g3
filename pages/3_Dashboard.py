@@ -201,10 +201,10 @@ else:
     if columnas['produccion'] and columnas['rentabilidad']:
         sample_df = df_filtrado[[columnas['produccion'], columnas['rentabilidad']]].dropna().head(1000)
         fig = px.scatter(sample_df, x=columnas['produccion'], y=columnas['rentabilidad'],
-                         title='Relación entre producción y rentabilidad',
-                         opacity=0.6, trendline='ols',
-                         labels={columnas['produccion']: 'Producción (toneladas)',
-                                 columnas['rentabilidad']: 'Rentabilidad (%)'})
+                 title='Relación entre producción y rentabilidad',
+                 opacity=0.6,
+                 labels={columnas['produccion']: 'Producción (toneladas)',
+                         columnas['rentabilidad']: 'Rentabilidad (%)'})
         fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
     else:

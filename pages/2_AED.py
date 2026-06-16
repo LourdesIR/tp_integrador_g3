@@ -354,15 +354,14 @@ if columnas_disponibles['costo'] and PLOTLY_AVAILABLE:
 st.subheader("📊 Gráfico 5: Producción vs Rentabilidad")
 if columnas_disponibles['produccion'] and columnas_disponibles['rentabilidad'] and PLOTLY_AVAILABLE:
     fig = px.scatter(df_filtrado.sample(min(1000, len(df_filtrado))), 
-                     x=columnas_disponibles['produccion'], 
-                     y=columnas_disponibles['rentabilidad'],
-                     color=columnas_disponibles['tecnificacion'] if columnas_disponibles['tecnificacion'] else None,
-                     hover_data=[columnas_disponibles['provincia'], columnas_disponibles['actividad']] if columnas_disponibles['provincia'] else None,
-                     title='Relación: Producción vs Rentabilidad',
-                     opacity=0.6,
-                     trendline='ols',
-                     labels={columnas_disponibles['produccion']: 'Producción (toneladas)',
-                             columnas_disponibles['rentabilidad']: 'Rentabilidad (%)'})
+                 x=columnas_disponibles['produccion'], 
+                 y=columnas_disponibles['rentabilidad'],
+                 color=columnas_disponibles['tecnificacion'] if columnas_disponibles['tecnificacion'] else None,
+                 hover_data=[columnas_disponibles['provincia'], columnas_disponibles['actividad']] if columnas_disponibles['provincia'] else None,
+                 title='Relación: Producción vs Rentabilidad',
+                 opacity=0.6,
+                 labels={columnas_disponibles['produccion']: 'Producción (toneladas)',
+                         columnas_disponibles['rentabilidad']: 'Rentabilidad (%)'})
     fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
     st.caption("📌 **Justificación:** Muestra que no hay correlación directa entre producción y rentabilidad")
