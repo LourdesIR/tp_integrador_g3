@@ -13,13 +13,13 @@ except ImportError:
 
 st.set_page_config(page_title="Limpieza de Datos", layout="wide")
 
-# Verificar que hay datos cargados
-if 'df' not in st.session_state:
-    st.error("⚠️ No hay datos cargados. Volviendo a la página principal...")
+if 'df_raw' in st.session_state and 'df_limpio' in st.session_state:
+    df_raw = st.session_state['df_raw']      # Dataset original (con errores)
+    df_limpio = st.session_state['df_limpio']  # Dataset limpio (para análisis)
+else:
+    st.error("No hay datos cargados")
     st.switch_page("app.py")
     st.stop()
-
-df = st.session_state['df']
 
 st.title("🧹 Actividades 3 y 4: Diagnóstico y Limpieza de Datos")
 st.markdown("---")

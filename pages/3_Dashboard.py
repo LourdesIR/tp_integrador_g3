@@ -11,12 +11,12 @@ except ImportError:
 st.set_page_config(page_title="Dashboard Ejecutivo", layout="wide")
 
 # Verificar datos
-if 'df' not in st.session_state:
-    st.error("⚠️ No hay datos cargados. Volviendo a la página principal...")
+if 'df_limpio' not in st.session_state:
+    st.error("⚠️ No hay datos limpios cargados...")
     st.switch_page("app.py")
     st.stop()
 
-df = st.session_state['df']
+df = st.session_state['df_limpio']
 
 st.title("📊 Actividad 9: Dashboard Ejecutivo")
 st.markdown("### Monitoreo de KPIs y análisis interactivo")
