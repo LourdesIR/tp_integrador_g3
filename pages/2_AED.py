@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+# Al principio de 2_AED.py, después de los imports, agregar:
+if not PLOTLY_AVAILABLE:
+    st.warning("⚠️ Plotly no está instalado. Instalalo con: pip install plotly")
+    st.info("Mostrando visualizaciones en versión simplificada...")
+    
 try:
     import plotly.express as px
     import plotly.graph_objects as go
