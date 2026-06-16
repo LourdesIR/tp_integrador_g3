@@ -1,17 +1,46 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from PIL import Image
+from pathlib import Path
 
-# Configuración de la página
+# Intentar importar plotly
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+
+# Configuración
 st.set_page_config(
     page_title="TP Integrador - Grupo 3",
     page_icon="🌾",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
+
+# ========== FUNCIÓN PARA CARGAR DATASET ==========
+@st.cache_data
+def cargar_dataset():
+    """Carga el dataset agropecuario desde la carpeta data/"""
+    
+    # Buscar en múltiples ubicaciones posibles
+    posibles_ubicaciones = [
+        Path("data/dataset_agropecuario.csv"),      # data/dataset_agropecuario.csv
+        Path("data/agropecuario.csv"),               # nombre alternativo
+        Path("dataset_agropecuario.csv"),            # raíz
+        Path("../data/dataset_agropecuario.csv"),    # un nivel arriba
+    ]
+    
+    for archivo in posibles_ubicaciones:
+        if archivo.exists():
+            df = pd.read_csv(archivo)
+            return df, f"✅ Dataset cargado: {len(df)} registros desde `{archivo}`"
+    
+    # Si no encuentra el archivo, muestra las opciones probadas
+    return None, f"❌ No se encontró 'dataset_agropecuario.csv' en la carpeta `data/`. Ubicaciones probadas: {[str(p) for p in posibles_ubicaciones]}"
+
+# Cargar dataset
+df, mensaje_carga = cargar_dataset()
 
 # Título principal
 st.title("🌾 Análisis del Sector Agropecuario Argentino")
@@ -19,57 +48,56 @@ st.markdown("### Producción, Costos y Rentabilidad")
 st.markdown("**Grupo 3:** Rodolfo Nicolás Aguirre, María Florencia Ardanaz, Juan Manuel Bidegain, Lourdes Reynaldo")
 st.markdown("---")
 
-# Sidebar para navegación conceptual
-st.sidebar.image("https://img.icons8.com/color/96/argentina.png", width=80)
-st.sidebar.title("📋 Navegación")
-st.sidebar.info("Usa el menú superior para explorar las diferentes actividades")
-
-# Actividad 1: Comprensión de la problemática
-with st.expander("📖 Actividad 1 - Importancia del sector agropecuario", expanded=True):
-    col1, col2 = st.columns(2)
+# Mostrar estado de carga
+if df is not None:
+    st.success(mensaje_carga)
     
-    with col1:
-        st.markdown("""
-        ### 🔍 El sector agropecuario en Argentina
-        
-        - **Aporte al PBI:** ~15% de los ingresos por exportaciones
-        - **Generación de empleo:** Más de 500,000 puestos directos
-        - **Principales cultivos:** Soja, maíz, trigo, girasol
-        - **Ventaja comparativa:** Suelos fértiles y clima favorable
+    # Mostrar estructura de carpetas actual
+    with st.expander("📁 Estructura del proyecto", expanded=False):
+        st.code("""
+        tp_integrador_g3/
+        │
+        ├── app.py
+        ├── requirements.txt
+        │
+        ├── data/                           ← ¡TU ARCHIVO ESTÁ AQUÍ!
+        │   └── dataset_agropecuario.csv    ← Cargado correctamente
+        │
+        └── pages/
+            ├── 1_Limpieza.py
+            ├── 2_AED.py
+            ├── 3_Dashboard.py
+            └── 4_Analisis.py
         """)
     
-    with col2:
-        st.metric("🌱 Producción anual de granos", "~140 M toneladas", "promedio 2020-2024")
-        st.metric("💰 Exportaciones agroindustriales", "USD 35,000 M", "2024")
-
-# Actividad 2: Dataset
-with st.expander("📊 Actividad 2 - Comprensión del dataset"):
-    st.markdown("""
-    ### Características del dataset
+    # Vista previa del dataset
+    with st.expander("📋 Vista previa del dataset", expanded=False):
+        st.dataframe(df.head(10), use_container_width=True)
+        st.caption(f"Dimensiones: {df.shape[0]} filas × {df.shape[1]} columnas")
+        
+        # Mostrar tipos de datos
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write("**Tipos de datos:**")
+            st.dataframe(df.dtypes.to_frame().rename(columns={0: 'Tipo'}), use_container_width=True)
+        with col2:
+            st.write("**Estadísticas rápidas (columnas numéricas):**")
+            # Mostrar solo columnas numéricas
+            df_numeric = df.select_dtypes(include=[np.number])
+            if len(df_numeric.columns) > 0:
+                st.dataframe(df_numeric.describe(), use_container_width=True)
+            else:
+                st.info("No hay columnas numéricas en el dataset")
     
-    | Característica | Valor |
-    |---|---|
-    | Registros | 5,000 explotaciones |
-    | Variables | 14 |
-    | Período | Datos anuales |
-    | Cobertura geográfica | Nacional |
-    """)
+    # Guardar en session_state
+    st.session_state['df'] = df
+    st.session_state['PLOTLY_AVAILABLE'] = PLOTLY_AVAILABLE
     
-    # Tabla de variables
-    variables_df = pd.DataFrame({
-        "Variable": ["ID_Explotacion", "Provincia", "Actividad", "Superficie_Hectareas", 
-                     "Edad_Productor", "Nivel_Tecnificacion", "Produccion_Toneladas",
-                     "Costo_Produccion", "Precio_Venta_Tonelada", "Ingresos",
-                     "Cantidad_Empleados", "Uso_Riego", "Rentabilidad_Porcentaje",
-                     "Indice_Sustentabilidad"],
-        "Tipo": ["Identificador", "Categórica", "Categórica", "Numérica continua",
-                 "Numérica discreta", "Categórica ordinal", "Numérica continua",
-                 "Numérica continua", "Numérica continua", "Numérica continua",
-                 "Numérica discreta", "Categórica binaria", "Numérica continua",
-                 "Numérica continua"],
-        "Descripción": ["ID único", "Provincia", "Tipo de producción", "Hectáreas",
-                        "Edad del productor", "Bajo/Medio/Alto", "Toneladas producidas",
-                        "Costos totales ($)", "Precio por tonelada ($)", "Ingresos totales ($)",
-                        "N° de empleados", "Sí/No", "% de rentabilidad", "Índice 0-100"]
-    })
-    st.dataframe(variables_df, use_container_width=True)
+else:
+    st.error(mensaje_carga)
+    
+    # Mostrar ayuda más detallada
+    st.info("""
+    ### 📁 ¿Cómo solucionarlo?
+    
+    1. **Verificá la estructura de carpetas:**
