@@ -72,12 +72,28 @@ def limpiar_dataset(df):
             )
             cambios.append(f"✅ Corregidos {mask_null.sum()} valores nulos en Produccion_Toneladas")
     
-    # 3. Estandarizar columnas categóricas
-    for col in df_clean.select_dtypes(include=['object']).columns:
-        if df_clean[col].nunique() < 20:
-            df_clean[col] = df_clean[col].astype(str).str.strip().str.capitalize()
-            cambios.append(f"✅ Estandarizada columna: {col}")
+       # 3. Estandarizar columnas categóricas específicas
+    # Uso_Riego: unificar todas las variantes
+    if 'Uso_Riego' in df_clean.columns:
+        df_clean['Uso_Riego'] = df_clean['Uso_Riego'].astype(str).str.strip().str.lower()
+        df_clean['Uso_Riego'] = df_clean['Uso_Riego'].map({'si': 'Sí', 'sí': 'Sí', 'no': 'No'})
+        cambios.append("✅ Estandarizada columna: Uso_Riego")
     
+    # Actividad: capitalizar
+    if 'Actividad' in df_clean.columns:
+        df_clean['Actividad'] = df_clean['Actividad'].astype(str).str.strip().str.capitalize()
+        cambios.append("✅ Estandarizada columna: Actividad")
+    
+    # Provincia: title (primeras letras mayúsculas)
+    if 'Provincia' in df_clean.columns:
+        df_clean['Provincia'] = df_clean['Provincia'].astype(str).str.strip().str.title()
+        cambios.append("✅ Estandarizada columna: Provincia")
+    
+    # Nivel_Tecnificacion: capitalizar
+    if 'Nivel_Tecnificacion' in df_clean.columns:
+        df_clean['Nivel_Tecnificacion'] = df_clean['Nivel_Tecnificacion'].astype(str).str.strip().str.capitalize()
+        cambios.append("✅ Estandarizada columna: Nivel_Tecnificacion")
+        
     # 4. Corregir ingresos inconsistentes
     if all(col in df_clean.columns for col in ['Ingresos', 'Produccion_Toneladas', 'Precio_Venta_Tonelada']):
         ingresos_calculados = df_clean['Produccion_Toneladas'] * df_clean['Precio_Venta_Tonelada']

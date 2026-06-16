@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+
 # ========== PRIMERO DEFINIR PLOTLY_AVAILABLE ==========
 try:
     import plotly.express as px
